@@ -1,0 +1,21 @@
+---
+- name: Distribute files to nodes
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Copy Python scripts to all nodes
+      copy:
+        src: /path/to/scripts/
+        dest: /usr/local/pipeline_scripts/
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy datasets to storage or workers
+      copy:
+        src: /path/to/datasets/
+        dest: /shared/data/
+        owner: root
+        group: root
+        mode: '0755'

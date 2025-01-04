@@ -1,0 +1,8 @@
+---
+- name: Run data analysis pipeline
+  hosts: worker
+  become: true
+
+  tasks:
+    - name: Execute pipeline script
+      command: python3 /usr/local/pipeline_scripts/pipeline_script.py /shared/data/input /shared/data/output

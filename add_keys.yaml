@@ -1,0 +1,11 @@
+---
+- name: Add SSH key for almalinux user
+  hosts: all
+  become: true
+  become_user: root
+  tasks:
+    - name: Ensure SSH key is present in authorized_keys for almalinux user
+      ansible.builtin.authorized_key:
+        user: almalinux
+        state: present
+        key: "{{ lookup('file', '/home/almalinux/.ssh/pair1.pub') }}"

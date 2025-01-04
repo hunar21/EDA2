@@ -1,0 +1,8 @@
+---
+- name: Summarize results
+  hosts: host
+  become: true
+
+  tasks:
+    - name: Run summary script
+      command: python3 /usr/local/pipeline_scripts/summarize_results.py

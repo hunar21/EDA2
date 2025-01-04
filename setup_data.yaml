@@ -1,0 +1,146 @@
+- name: Setup Cluster Nodes for COMP0235 Coursework
+  hosts: all
+  become: true
+
+  vars:
+    shared_data_dir: /data/local
+
+  tasks:
+    - name: Ensure shared data directory exists
+      file:
+        path: "{{ shared_data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0777'
+      when: inventory_hostname in groups['storage']
+
+    - name: Ensure /data/tmp exists with appropriate permissions
+      ansible.builtin.file:
+        path: /data/tmp
+        state: directory
+        mode: '0777'
+        owner: root
+        group: root
+      when: inventory_hostname in groups['storage']
+
+    - name: Set /data/tmp as the temporary directory for Ansible
+      ansible.builtin.lineinfile:
+        path: /etc/ansible/ansible.cfg
+        line: "remote_tmp = /data/tmp"
+        insertafter: '[defaults]'
+        create: yes
+      when: inventory_hostname in groups['storage']
+
+    - name: Download datasets using URLs
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: "{{ shared_data_dir }}/{{ item.filename }}"
+        mode: '0777'
+        owner: root
+        group: root
+      loop:
+        - { url: "https://ftp.ebi.ac.uk/pub/databases/alphafold/latest/UP000005640_9606_HUMAN_v4.tar", filename: "UP000005640_9606_HUMAN_v4.tar" }
+        - { url: "https://ftp.ebi.ac.uk/pub/databases/alphafold/latest/UP000000625_83333_ECOLI_v4.tar", filename: "UP000000625_83333_ECOLI_v4.tar" }
+        - { url: "http://bioinfadmin.cs.ucl.ac.uk/downloads/merizo_search/cath_foldclassdb.tar.gz", filename: "cath_foldclassdb.tar.gz" }
+      become: true
+      vars:
+        ansible_remote_tmp: /data/tmp
+      when: inventory_hostname in groups['storage']
+    
+    - name: Ensure directories for extracted data exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0777'
+        owner: root
+        group: root
+      loop:
+        - /data/local/extracted/
+        - /data/local/extracted/human
+        - /data/local/extracted/ecoli
+        - /data/local/extracted/db
+      become: true
+      when: inventory_hostname in groups['storage']
+
+    - name: Extract human data into /data/local/extracted/human
+      ansible.builtin.unarchive:
+        src: "{{ shared_data_dir }}/UP000005640_9606_HUMAN_v4.tar"
+        dest: "{{ shared_data_dir }}/extracted/human"
+        remote_src: yes
+        mode: '0777'
+        owner: root
+        group: root
+      become: true
+      when: inventory_hostname in groups['storage']
+
+    - name: Extract ecoli data into /data/local/extracted/ecoli
+      ansible.builtin.unarchive:
+        src: "{{ shared_data_dir }}/UP000000625_83333_ECOLI_v4.tar"
+        dest: "{{ shared_data_dir }}/extracted/ecoli"
+        remote_src: yes
+        mode: '0777'
+        owner: root
+        group: root
+      become: true
+      when: inventory_hostname in groups['storage']
+
+    - name: Extract cath database into /data/local/extracted/db
+      ansible.builtin.unarchive:
+        src: "{{ shared_data_dir }}/cath_foldclassdb.tar.gz"
+        dest: "{{ shared_data_dir }}/extracted/db"
+        remote_src: yes
+        mode: '0777'
+        owner: root
+        group: root
+      become: true
+      when: inventory_hostname in groups['storage']
+
+    - name: Find all .gz files in human directory
+      ansible.builtin.find:
+        paths:
+          - "{{ shared_data_dir }}/extracted/human"
+        patterns: "*.gz"
+        recurse: yes
+      register: gz_files
+      become: true
+
+    - name: Unzip human .gz files
+      ansible.builtin.unarchive:
+        src: "{{ shared_data_dir }}/extracted/human"
+        dest: "{{ shared_data_dir }}/extracted/human"  # Extract to the same directory as the .gz file
+        remote_src: yes
+      loop: "{{ gz_files.files }}"
+      become: true
+      when: 
+        - gz_files.matched > 0
+        - inventory_hostname in groups['storage']
+    
+
+    - name: Find all .gz files in extracted directories
+      ansible.builtin.find:
+        paths:
+          - "{{ shared_data_dir }}/extracted/ecoli"
+        patterns: "*.gz"
+        recurse: yes
+      register: gz_files
+      become: true
+
+    - name: Unzip ecoli .gz files
+      ansible.builtin.unarchive:
+        src: "{{ shared_data_dir }}/extracted/ecoli"
+        dest: "{{ shared_data_dir }}/extracted/ecoli"  # Extract to the same directory as the .gz file
+        remote_src: yes
+      loop: "{{ gz_files.files }}"
+      become: true
+      when: 
+        - gz_files.matched > 0
+        - inventory_hostname in groups['storage']
+
+
+#    - name: Unzip all .gz files
+#      ansible.builtin.command:
+#        cmd: "gunzip {{ item.path }}"
+#      loop: "{{ gz_files.files }}"
+#      become: true
+#      when: gz_files.matched > 0

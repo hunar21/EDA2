@@ -1,0 +1,78 @@
+---
+- name: Install and Configure Spark and Java
+  hosts: all
+  become: true
+
+  vars:
+    spark_version: "3.5.4"
+    hadoop_version: "hadoop3"
+    spark_download_url: "https://dlcdn.apache.org/spark/spark-3.5.4/spark-3.5.4-bin-hadoop3.tgz"
+    spark_install_dir: "/opt/spark"
+
+  tasks:
+
+    - name: Install required packages
+      yum:
+        name:
+          - java-11-openjdk-devel
+          - wget
+        state: present
+
+    - name: Verify Java installation
+      command: java -version
+      ignore_errors: true
+
+    - name: Download Spark
+      get_url:
+        url: "{{ spark_download_url }}"
+        dest: "/tmp/spark-{{ spark_version }}-bin-{{ hadoop_version }}.tgz"
+      register: spark_download
+
+    - name: Extract Spark
+      unarchive:
+        src: "/tmp/spark-{{ spark_version }}-bin-{{ hadoop_version }}.tgz"
+        dest: "/opt/"
+        remote_src: yes
+      when: spark_download.changed
+
+    - name: Check if Spark symlink already exists
+      stat:
+        path: "{{ spark_install_dir }}"
+      register: spark_symlink
+  
+
+    - name: Set Spark symlink
+      file:
+        src: "/opt/spark-{{ spark_version }}-bin-{{ hadoop_version }}"
+        dest: "{{ spark_install_dir }}"
+        state: link
+      when: not spark_symlink.stat.exists
+
+
+    - name: Set environment variables for Java and Spark
+      copy:
+        dest: /etc/profile.d/spark.sh
+        content: |
+          export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+          export SPARK_HOME={{ spark_install_dir }}
+          export PATH=$JAVA_HOME/bin:$SPARK_HOME/bin:$PATH
+
+    - name: Source environment variables
+      shell: source /etc/profile.d/spark.sh
+      args:
+        executable: /bin/bash
+
+    - name: Verify Spark installation
+      command: "{{ spark_install_dir }}/bin/spark-submit --version"
+      ignore_errors: true
+
+    - name: Start Spark Master
+      command: "{{ spark_install_dir }}/sbin/start-master.sh"
+      when: inventory_hostname in groups['hosts']
+      ignore_errors: true
+
+    - name: Start Spark Worker
+      command: "{{ spark_install_dir }}/sbin/start-worker.sh spark://{{ groups['hosts'][0] }}:7077"
+      when: inventory_hostname not in groups['hosts']
+      ignore_errors: true
+

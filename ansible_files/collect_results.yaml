@@ -1,0 +1,11 @@
+---
+- name: Collect output results from workers
+  hosts: worker
+  become: true
+
+  tasks:
+    - name: Fetch output files to the host
+      fetch:
+        src: /shared/data/output/
+        dest: /local/results/
+        flat: no

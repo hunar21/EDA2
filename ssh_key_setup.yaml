@@ -1,0 +1,36 @@
+---
+- name: Configure SSH key-based authentication
+  hosts: all
+  become: yes
+  become_user: almalinux
+  vars:
+    ssh_key_path: "/home/almalinux/.ssh"
+    authorized_keys_file: "/home/almalinux/.ssh/authorized_keys"
+
+  tasks:
+    - name: Generate an SSH key pair on the host node
+      delegate_to: 10.134.12.80
+      ansible.builtin.shell: |
+        ssh-keygen -t rsa -b 4096 -f {{ ssh_key_path }}/id_rsa -N ""
+      args:
+        creates: "{{ ssh_key_path }}/id_rsa"
+      when: inventory_hostname in groups['hosts']
+
+    - name: Read the generated public key
+      delegate_to: 10.134.12.80
+      when: inventory_hostname in groups['hosts']
+      ansible.builtin.slurp:
+        src: "{{ ssh_key_path }}/id_rsa.pub"
+      register: ssh_pubkey
+      run_once: true
+
+    - name: Debug the public key content
+      debug:
+        msg: "{{ ssh_pubkey['content'] | b64decode }}"
+
+    - name: Add public key to authorized_keys using blockinfile
+      when: inventory_hostname not in groups['hosts']
+      ansible.builtin.blockinfile:
+        path: "{{ authorized_keys_file }}"
+        block: "{{ ssh_pubkey['content'] | b64decode }}"
+        create: yes

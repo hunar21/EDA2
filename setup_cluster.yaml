@@ -1,0 +1,103 @@
+---
+- name: Setup Cluster Nodes for COMP0235 Coursework
+  hosts: all
+  become: true
+
+  vars:
+    shared_data_dir: /data/local
+    pipeline_scripts_dir: /data/local/pipeline_scripts
+    scripts:
+      - pipeline_script.py
+      - merizo.py
+      - results_parser.py
+
+  tasks:
+    # Step 4: Prepare Scripts
+    - name: Ensure pipeline scripts directory exists
+      file:
+        path: "{{ pipeline_scripts_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy scripts to all nodes
+      copy:
+        src: ~/merizo_coursework/merizosearch_coursework_2024/code/{{ item }}
+        dest: "{{ pipeline_scripts_dir }}/{{ item }}"
+        owner: root
+        group: root
+        mode: '0755'
+      with_items: "{{ scripts }}"
+    
+    - name: Clone the merizo repository
+      git:
+        repo: https://github.com/psipred/merizo_search.git
+        dest: /data/local/pipeline_scripts/merizo
+        update: yes
+      tags:
+        - clone
+      ignore_errors: yes
+
+
+
+
+    # Step 5: Configure Shared Storage (NFS)
+    - name: Install NFS server (on storage node)
+      yum:
+        name: nfs-utils
+        state: present
+      when: inventory_hostname in groups['storage']
+
+    - name: Ensure shared data directory exists
+      file:
+        path: "{{ shared_data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      when: inventory_hostname in groups['storage']  
+
+    - name: Configure NFS exports (on storage node)
+      lineinfile:
+        path: /etc/exports
+        line: "{{ shared_data_dir }} *(rw,sync,no_root_squash)"
+        create: yes
+      when: inventory_hostname in groups['storage']
+
+    - name: Restart NFS server (on storage node)
+      service:
+        name: nfs-server
+        state: restarted
+      when: inventory_hostname in groups['storage']
+
+    - name: Install NFS utilities (on host and workers)
+      yum:
+        name: nfs-utils
+        state: present
+      when: inventory_hostname not in groups['storage']
+
+    - name: Unmount existing /data if mounted
+      ansible.builtin.command:
+        cmd: umount /data
+      ignore_errors: yes
+      when: inventory_hostname not in groups['storage']
+
+
+    - name: Mount shared directory (on host and workers)
+      mount:
+        path: "{{ shared_data_dir }}"
+        src: "{{ groups['storage'][0] }}:{{ shared_data_dir }}"
+        fstype: nfs
+        opts: defaults
+        state: mounted
+      when: inventory_hostname not in groups['storage']
+    
+
+    - name: Verify NFS mount on all nodes
+      command: ls -l {{ shared_data_dir }}
+      register: nfs_contents
+      failed_when: "'No such file or directory' in nfs_contents.stderr"
+      when: inventory_hostname not in groups['storage']
+
+
