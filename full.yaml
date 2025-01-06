@@ -17,4 +17,4 @@
 - import_playbook: install_pyspark.yaml
 - import_playbook: second-disk.yaml
 - import_playbook: setup_cluster.yaml
-#- import-playbook: setup_data.yaml
+- import_playbook: setup_data.yaml

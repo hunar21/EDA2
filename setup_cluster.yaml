@@ -10,6 +10,8 @@
       - pipeline_script.py
       - merizo.py
       - results_parser.py
+      - summarise_results.py
+      - calculate_mean.py
 
   tasks:
     # Step 4: Prepare Scripts
@@ -23,7 +25,7 @@
 
     - name: Copy scripts to all nodes
       copy:
-        src: ~/merizo_coursework/merizosearch_coursework_2024/code/{{ item }}
+        src: ~/CW2/terraform_combined/{{ item }}
         dest: "{{ pipeline_scripts_dir }}/{{ item }}"
         owner: root
         group: root
