@@ -72,3 +72,9 @@
         state: present
         executable: pip3
       when: inventory_hostname in groups['workers']
+    
+    - name: Install pandas on host
+      ansible.builtin.command:
+        cmd: python3 -m pip install pandas
+        creates: /usr/local/lib/python3.*/dist-packages/pandas
+      when: inventory_hostname in groups['hosts']

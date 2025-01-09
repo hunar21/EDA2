@@ -1,0 +1,45 @@
+---
+- name: Execute Spark jobs on remote hosts
+  hosts: hosts
+  become: yes
+  tasks:
+    - name: Ensure /data/local/pipeline_scripts exists
+      file:
+        path: /data/local/pipeline_scripts
+        state: directory
+
+    - name: Execute Spark pipeline for ecoli
+      command: >
+        spark-submit pipeline_script /data/local/extracted/ecoli /data/local/extracted/ecoli/output
+      args:
+        chdir: /data/local/pipeline_scripts
+
+    - name: Summarize results for ecoli
+      command: >
+        python3 summarise_results /data/local/extracted/ecoli/output /data/local/extracted/ecoli/summary_file ecoli
+      args:
+        chdir: /data/local/pipeline_scripts
+
+    - name: Calculate mean pLDDT for ecoli
+      command: >
+        python3 calculate_mean /data/local/extracted/ecoli/output /data/local/extracted/ecoli/plDDT_mean
+      args:
+        chdir: /data/local/pipeline_scripts
+
+    - name: Execute Spark pipeline for human
+      command: >
+        spark-submit pipeline_script /data/local/extracted/human /data/local/extracted/human/output
+      args:
+        chdir: /data/local/pipeline_scripts
+
+    - name: Summarize results for human
+      command: >
+        python3 summarise_results /data/local/extracted/human/output /data/local/extracted/human/summary_file human
+      args:
+        chdir: /data/local/pipeline_scripts
+
+    - name: Calculate mean pLDDT for human
+      command: >
+        python3 calculate_mean /data/local/extracted/human/output /data/local/extracted/human/plDDT_mean
+      args:
+        chdir: /data/local/pipeline_scripts
