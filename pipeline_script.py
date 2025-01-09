@@ -68,6 +68,8 @@ if __name__ == "__main__":
         .setMaster(f"spark://{host_ip}:7077")
         .set("spark.executor.memory", "24g")
         .set("spark.executor.cores", "4")
+        .set("spark.dynamicAllocation.executorIdleTimeout", "600s")
+        .set("spark.task.maxFailures", "4")  # Retry tasks up to 4 times
     )
     sc = SparkContext(conf=conf)
 
@@ -76,7 +78,7 @@ if __name__ == "__main__":
     print(f"Found {len(pdb_files)} .pdb files in {input_dir}")
 
     # Step 1: Parallelize Merizo Search across the cluster
-    num_partitions = 30  # Adjusted to better utilize the cluster
+    num_partitions = 24  # Adjusted to better utilize the cluster
     search_files = sc.parallelize(pdb_files, numSlices=num_partitions).map(lambda file: run_merizo(file, output_dir)).collect()
     print(f"Generated search files: {search_files}")
 
