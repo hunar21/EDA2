@@ -1,6 +1,6 @@
----
 - name: Execute Spark jobs on remote hosts
   hosts: hosts
+  become_user: root
   become: yes
   tasks:
     - name: Ensure /data/local/pipeline_scripts exists
@@ -8,17 +8,24 @@
         path: /data/local/pipeline_scripts
         state: directory
 
-#    - name: Execute Spark pipeline for ecoli
-#      command: >
-#        spark-submit pipeline_script.py /data/local/extracted/ecoli /data/local/extracted/ecoli/output
-#      args:
-#        chdir: /data/local/pipeline_scripts
+
+    - name: Execute Spark pipeline for ecoli
+      command: >
+        spark-submit pipeline_script.py /data/local/extracted/ecoli /data/local/extracted/ecoli/output2
+      args:
+        chdir: /data/local/pipeline_scripts
+      environment:
+        JAVA_HOME: /usr/lib/jvm/java-11-openjdk
+        SPARK_HOME: /opt/spark
+        PATH: "{{ ansible_env.PATH }}:/usr/lib/jvm/java-11-openjdk/bin:/opt/spark/bin"
 
     - name: Summarize results for ecoli
       command: >
         python3 summarise_results.py /data/local/extracted/ecoli/output /data/local/extracted/ecoli/summary_file ecoli
       args:
         chdir: /data/local/pipeline_scripts
+      environment:
+        PATH: "{{ ansible_env.PATH }}"
 
     - name: Calculate mean pLDDT for ecoli
       command: >
@@ -31,6 +38,10 @@
         spark-submit pipeline_script.py /data/local/extracted/human /data/local/extracted/human/output
       args:
         chdir: /data/local/pipeline_scripts
+      environment:
+        JAVA_HOME: /usr/lib/jvm/java-11-openjdk
+        SPARK_HOME: /opt/spark
+        PATH: "{{ ansible_env.PATH }}:/usr/lib/jvm/java-11-openjdk/bin:/opt/spark/bin"
 
     - name: Summarize results for human
       command: >
