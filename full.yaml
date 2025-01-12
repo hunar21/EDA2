@@ -1,15 +1,4 @@
----
-- name: Add SSH key to authorized_keys
-  hosts: all
-  become: true
-  become_user: root
-  tasks:
-    - name: Ensure SSH key is present in authorized_keys for almalinux user
-      ansible.builtin.authorized_key:
-        user: almalinux
-        state: present
-        key: "{{ lookup('file', '/home/almalinux/.ssh/id_rsa.pub') }}"
-
+- import_playbook: add_keys.yaml
 #- import_playbook: update.yaml
 - import_playbook: local.yaml
 #- import_playbook: reboot.yaml
@@ -18,3 +7,4 @@
 - import_playbook: second-disk.yaml
 - import_playbook: setup_cluster.yaml
 - import_playbook: setup_data.yaml
+- import_playbook: execute_scripts.yaml
