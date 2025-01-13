@@ -89,7 +89,7 @@ If the script fails at any point, try running the failed playbooks individually.
    - `.pdb` files should exist inside the `human` and `ecoli` directories.
 
 If these conditions are not met, rerun the `setup_cluster.yaml` playbook and verify again.
-
+> **Note**: change path in setup_cluster where the scripts are present in task- "Copy scripts to all nodes" and make sure all scripts are present at the location specified.
 ---
 
 ### Step 3: Executing Scripts
