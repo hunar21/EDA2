@@ -104,7 +104,7 @@ When `execute_scripts.yaml` runs, the following Python scripts are executed:
      ```
 
 2. **`summarise_results.py`**:
-   - **Arguments**: Input directory, Output directory, Name of the file
+   - **Arguments**: Input directory, Output directory, Name_of_the_file__cath_summary.csv
    - Example:
      ```bash
      python3 summarise_results.py /data/local/extracted/ecoli/output /data/local/extracted/ecoli/summary_file ecoli
