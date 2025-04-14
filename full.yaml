@@ -2,9 +2,13 @@
 #- import_playbook: update.yaml
 - import_playbook: local.yaml
 #- import_playbook: reboot.yaml
-- import_playbook: tools.yaml
+#- import_playbook: tools.yaml
+- import_playbook: tools2.yaml
 - import_playbook: install_pyspark.yaml
 - import_playbook: second-disk.yaml
 - import_playbook: setup_cluster.yaml
 - import_playbook: setup_data.yaml
-- import_playbook: execute_scripts.yaml
+- import_playbook: shared_venv.yaml
+- import_playbook: setup_airflow2.yaml
+
+#- import_playbook: execute_scripts.yaml

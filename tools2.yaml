@@ -1,0 +1,64 @@
+- name: Update packages and install minimum requirements.
+  hosts: all
+  become: true
+  become_user: root
+
+  tasks:
+    - name: Install quality of life tools
+      ansible.builtin.dnf:
+        name:
+          - vim
+          - emacs
+          - nano
+          - screen
+          - tmux
+          - net-tools
+          - bind-utils
+          - htop
+          - git
+          - ansible
+          - make
+          - unzip
+          - wget
+          - links
+        state: latest
+
+    - name: Install Python 3 and pip
+      ansible.builtin.dnf:
+        name:
+          - python3-devel
+          - python3-pip
+          - python3-virtualenv
+        state: latest
+
+    - name: Install compilers and system dependencies
+      ansible.builtin.dnf:
+        name:
+          - g++
+          - gfortran
+          - openmpi-devel
+          - openmpi
+          - patch
+          - bzip2
+          - python3-mpi4py-openmpi
+          - make
+          - java-11-openjdk
+        state: latest
+    - name: Upgrade pip to the latest version
+      ansible.builtin.pip:
+        name: pip
+        state: latest
+        executable: pip3
+
+    - name: Upgrade pip to the latest version
+      ansible.builtin.pip:
+        name: pip
+        state: latest
+        executable: pip3
+
+    - name: Add shared venv path to default shell profile
+      copy:
+        dest: /etc/profile.d/shared_venv.sh
+        content: |
+          export PATH=/data/local/venv/bin:$PATH
+        mode: '0755'

@@ -1,0 +1,54 @@
+# shared_venv.yaml
+---
+- name: Create Shared Python Virtual Environment on Mounted Second Disk
+  hosts: storage
+  become: true
+
+  vars:
+    venv_path: /data/local/venv
+    packages:
+      - torch==2.0.1
+      - tensorflow
+      - scikit-learn
+      - pandas
+      - matplotlib
+      - h5py
+      - numpy<2.0
+      - einops
+      - natsort
+      - networkx
+      - rotary_embedding_torch
+      - scipy
+      - setuptools
+
+  tasks:
+    - name: Ensure venv directory exists on the mounted disk
+      file:
+        path: "{{ venv_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create Python virtual environment in shared folder
+      command: python3 -m venv {{ venv_path }}
+      args:
+        creates: "{{ venv_path }}/bin/activate"
+
+    - name: Upgrade pip in venv
+      pip:
+        name: pip
+        state: latest
+        executable: "{{ venv_path }}/bin/pip3"
+
+    - name: Install all required Python packages into shared venv
+      pip:
+        name: "{{ packages }}"
+        executable: "{{ venv_path }}/bin/pip3"
+      environment:
+        TMPDIR: /data/tmp
+  
+    - name: Ensure /data/tmp exists with proper permissions
+      file:
+        path: /data/tmp
+        state: directory
+        mode: '0777'
+

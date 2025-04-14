@@ -3,7 +3,7 @@
   become: true
 
   vars:
-    shared_data_dir: /data/local
+    shared_data_dir: /data/local/venv
 
   tasks:
     - name: Ensure shared data directory exists
@@ -29,71 +29,29 @@
         insertafter: '[defaults]'
         create: yes
 
-    - name: Download datasets using URLs
+    - name: Download stock market dataset from Kaggle
       ansible.builtin.get_url:
-        url: "{{ item.url }}"
-        dest: "{{ shared_data_dir }}/{{ item.filename }}"
+        url: "https://www.kaggle.com/api/v1/datasets/download/jacksoncrow/stock-market-dataset"
+        dest: "{{ shared_data_dir }}/stock-market-dataset.zip"
         mode: '0777'
         owner: root
         group: root
-      loop:
-        - { url: "https://ftp.ebi.ac.uk/pub/databases/alphafold/latest/UP000005640_9606_HUMAN_v4.tar", filename: "UP000005640_9606_HUMAN_v4.tar" }
-        - { url: "https://ftp.ebi.ac.uk/pub/databases/alphafold/latest/UP000000625_83333_ECOLI_v4.tar", filename: "UP000000625_83333_ECOLI_v4.tar" }
-        - { url: "http://bioinfadmin.cs.ucl.ac.uk/downloads/merizo_search/cath_foldclassdb.tar.gz", filename: "cath_foldclassdb.tar.gz" }
-      become: true
       vars:
         ansible_remote_tmp: /data/tmp
-    
-    - name: Ensure directories for extracted data exist
+
+    - name: Ensure directory for extracted stock market dataset exists
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: "{{ shared_data_dir }}/extracted/stock-market-dataset"
         state: directory
         mode: '0777'
         owner: root
         group: root
-      loop:
-        - /data/local/extracted/
-        - /data/local/extracted/human
-        - /data/local/extracted/ecoli
-        - /data/local/extracted/db
-      become: true
 
-    - name: Extract human data into /data/local/extracted/human
+    - name: Unzip stock market dataset into extracted folder
       ansible.builtin.unarchive:
-        src: "{{ shared_data_dir }}/UP000005640_9606_HUMAN_v4.tar"
-        dest: "{{ shared_data_dir }}/extracted/human"
+        src: "{{ shared_data_dir }}/stock-market-dataset.zip"
+        dest: "{{ shared_data_dir }}/extracted/stock-market-dataset"
         remote_src: yes
         mode: '0777'
         owner: root
         group: root
-      become: true
-
-    - name: Extract ecoli data into /data/local/extracted/ecoli
-      ansible.builtin.unarchive:
-        src: "{{ shared_data_dir }}/UP000000625_83333_ECOLI_v4.tar"
-        dest: "{{ shared_data_dir }}/extracted/ecoli"
-        remote_src: yes
-        mode: '0777'
-        owner: root
-        group: root
-      become: true
-
-    - name: Extract cath database into /data/local/extracted/db
-      ansible.builtin.unarchive:
-        src: "{{ shared_data_dir }}/cath_foldclassdb.tar.gz"
-        dest: "{{ shared_data_dir }}/extracted/db"
-        remote_src: yes
-        mode: '0777'
-        owner: root
-        group: root
-      become: true
-
-    - name: Unzip all .gz files in human directory
-      ansible.builtin.shell: |
-        cd {{ shared_data_dir }}/extracted/human && gunzip *
-      become: true
-
-    - name: Unzip all .gz files in ecoli directory
-      ansible.builtin.shell: |
-        cd {{ shared_data_dir }}/extracted/ecoli && gunzip *
-      become: true

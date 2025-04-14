@@ -99,3 +99,24 @@ variable storage_count {
   type    = number
   default = 1 # Number of storage VMs
 }
+
+# New Variables for Airflow Tagging
+variable airflow_ingress_hostname {
+  type    = string
+  default = "airflow-machine"  # change as needed
+}
+
+variable airflow_ingress_port {
+  type    = string
+  default = "8085"
+}
+
+variable airflow_api_hostname {
+  type    = string
+  default = "airflow-api-machine"  # change as needed
+}
+
+variable airflow_api_port {
+  type    = string
+  default = "8086"
+}

@@ -4,15 +4,19 @@
   become_user: root
   vars:
     python_packages:
-      - einops
+      - numpy<2.0
+      - pandas
+      - tensorflow
+      - scikit-learn
       - matplotlib
+      - h5py
+      - einops
       - natsort
       - networkx
-      - "numpy<2.0"
       - rotary_embedding_torch
       - scipy
       - setuptools
-      - "torch==2.0.1"
+      - torch==2.0.1
   tasks:
     - name: Install quality of life tools
       ansible.builtin.dnf:
@@ -66,7 +70,7 @@
         state: latest
         executable: pip3
 
-    - name: Install required Python packages
+    - name: Install required Python packages on workers
       ansible.builtin.pip:
         name: "{{ python_packages }}"
         state: present
@@ -74,7 +78,36 @@
       when: inventory_hostname in groups['workers']
     
     - name: Install pandas on host
-      ansible.builtin.command:
-        cmd: python3 -m pip install pandas
-        creates: /usr/local/lib/python3.*/dist-packages/pandas
+      ansible.builtin.pip:
+        name: pandas
+        state: present
+        executable: pip3
       when: inventory_hostname in groups['hosts']
+
+    - name: Install tensorFlow on host
+      ansible.builtin.pip:
+        name: tensorflow
+        state: present
+        executable: pip3
+      when: inventory_hostname in groups['hosts']
+
+    - name: Install sklearn on host
+      ansible.builtin.pip:
+        name: scikit-learn
+        state: present
+        executable: pip3
+      when: inventory_hostname in groups['hosts']
+
+    - name: Install keras on host
+      ansible.builtin.pip:
+        name: Keras
+        state: present
+        executable: pip3
+      when: inventory_hostname in groups['hosts']
+      
+    - name: Install keras on workers
+      ansible.builtin.pip:
+        name: Keras
+        state: present
+        executable: pip3
+      when: inventory_hostname in groups['workers']

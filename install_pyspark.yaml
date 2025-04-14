@@ -4,9 +4,9 @@
   become: true
 
   vars:
-    spark_version: "3.5.4"
+    spark_version: "3.5.1"
     hadoop_version: "hadoop3"
-    spark_download_url: "https://dlcdn.apache.org/spark/spark-3.5.4/spark-3.5.4-bin-hadoop3.tgz"
+    spark_download_url: "https://archive.apache.org/dist/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz"
     spark_install_dir: "/opt/spark"
 
   tasks:
@@ -39,7 +39,6 @@
       stat:
         path: "{{ spark_install_dir }}"
       register: spark_symlink
-  
 
     - name: Set Spark symlink
       file:
@@ -47,7 +46,6 @@
         dest: "{{ spark_install_dir }}"
         state: link
       when: not spark_symlink.stat.exists
-
 
     - name: Set environment variables for Java and Spark
       copy:
@@ -73,6 +71,13 @@
 
     - name: Start Spark Worker
       command: "{{ spark_install_dir }}/sbin/start-worker.sh spark://{{ groups['hosts'][0] }}:7077"
-      when: inventory_hostname not in groups['hosts']
+      when: inventory_hostname in groups['workers']
       ignore_errors: true
+    
+    - name: Persist PYSPARK_PYTHON path for all users
+      copy:
+        dest: /etc/profile.d/pyspark_python.sh
+        content: |
+          export PYSPARK_PYTHON=/data/local/venv/bin/python
+        mode: '0755'
 

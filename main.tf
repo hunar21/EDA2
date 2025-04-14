@@ -79,6 +79,24 @@ resource "harvester_virtualmachine" "host" {
     auto_delete = true
   }
 
+  tags = {
+    role                             = "airflow-host"
+    description                      = "airflow_ui_dag_coordinator"
+    storage_access_hostname          = "${var.username}-s3"
+    storage_access_port              = 9000
+    storage_access_protocol          = "https"
+    storage_console_hostname         = "${var.username}-cons"
+    storage_console_port             = 9001
+    storage_console_protocol         = "https"
+    condenser_ingress_isEnabled      = true
+    condenser_ingress_isAllowed      = true
+
+    # Airflow UI & API endpoints
+    condenser_ingress_airflow_hostname = "airflow-${var.username}"
+    condenser_ingress_airflow_port     = 8081
+    condenser_ingress_flask_hostname   = "airflow-api-${var.username}"
+  }
+
   # Cloud-init configuration
   cloudinit {
     user_data_secret_name = harvester_cloudinit_secret.cloud-config-host[count.index].name

@@ -7,11 +7,17 @@
     shared_data_dir: /data/local
     pipeline_scripts_dir: /data/local/pipeline_scripts
     scripts:
-      - pipeline_script.py
-      - merizo.py
-      - results_parser.py
-      - summarise_results.py
-      - calculate_mean.py
+       - /home/almalinux/stock/train.py
+       - /home/almalinux/stock/test.py
+       - /home/almalinux/stock/train.csv
+       - /home/almalinux/stock/csv_files/test.csv
+       - /home/almalinux/stock/stock_lstm_model.h5
+       - /home/almalinux/stock/scaler.pkl
+#      - pipeline_script.py
+#      - merizo.py
+#      - results_parser.py
+#      - summarise_results.py
+#      - calculate_mean.py
 
   tasks:
     # Step 4: Prepare Scripts
@@ -25,21 +31,21 @@
 
     - name: Copy scripts to all nodes
       copy:
-        src: ~/CW2/terraform_combined/{{ item }}
-        dest: "{{ pipeline_scripts_dir }}/{{ item }}"
+        src: "{{ item }}"
+        dest: "{{ pipeline_scripts_dir }}"
         owner: root
         group: root
         mode: '0755'
       with_items: "{{ scripts }}"
     
-    - name: Clone the merizo repository
-      git:
-        repo: https://github.com/psipred/merizo_search.git
-        dest: /data/local/pipeline_scripts/merizo
-        update: yes
-      tags:
-        - clone
-      ignore_errors: yes
+#    - name: Clone the merizo repository
+#      git:
+#        repo: https://github.com/psipred/merizo_search.git
+#        dest: /data/local/pipeline_scripts/merizo
+#        update: yes
+#      tags:
+#        - clone
+#      ignore_errors: yes
 
 
 

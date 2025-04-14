@@ -1,0 +1,166 @@
+---
+- name: Setup Airflow with SQLite using pip
+  hosts: hosts
+  become: yes
+
+  vars:
+    airflow_user: airflow
+    airflow_home: /opt/airflow
+    python_bin: "{{ airflow_home }}/venv/bin"
+    airflow_admin_user: admin
+    airflow_admin_pass: admin123
+    airflow_admin_email: admin@example.com
+
+  tasks:
+    - name: Ensure system packages are present
+      package:
+        name:
+          - python3
+          - python3-pip
+          - python3-virtualenv
+          - gcc
+          - python3-devel
+          - libffi-devel
+          - openssl-devel
+        state: present
+
+    - name: Install UFW (only for Ubuntu/Debian)
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Allow port 8081 for Airflow UI via UFW
+      ansible.builtin.command: ufw allow 8081/tcp
+      when: ansible_facts['os_family'] == "Debian"
+      ignore_errors: yes
+
+    - name: Enable UFW
+      ansible.builtin.command: ufw --force enable
+      when: ansible_facts['os_family'] == "Debian"
+      ignore_errors: yes
+
+    - name: Create airflow user if not exists
+      user:
+        name: "{{ airflow_user }}"
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Create airflow home directory
+      file:
+        path: "{{ airflow_home }}"
+        state: directory
+        owner: "{{ airflow_user }}"
+        group: "{{ airflow_user }}"
+        mode: 0755
+
+    - name: Create Python virtual environment
+      args:
+        chdir: "{{ airflow_home }}"
+        creates: "venv"
+      become_user: "{{ airflow_user }}"
+      command: python3 -m venv venv
+
+    - name: Upgrade pip inside venv
+      become_user: "{{ airflow_user }}"
+      command: "{{ python_bin }}/pip install --upgrade pip"
+
+    - name: Install compatible Flask + Werkzeug
+      become_user: "{{ airflow_user }}"
+      command: "{{ python_bin }}/pip install Flask==2.2.5 werkzeug==2.2.3"
+
+    - name: Install Apache Airflow with SQLite and constraints
+      become_user: "{{ airflow_user }}"
+      environment:
+        AIRFLOW_HOME: "{{ airflow_home }}"
+      command: >
+        {{ python_bin }}/pip install
+        "apache-airflow[sqlite]==2.10.5"
+        --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.9.txt"
+
+    - name: Initialize Airflow DB
+      become_user: "{{ airflow_user }}"
+      environment:
+        AIRFLOW_HOME: "{{ airflow_home }}"
+        PATH: "{{ python_bin }}:{{ ansible_env.PATH }}"
+      command: "{{ python_bin }}/airflow db init"
+
+    - name: Set executor in airflow.cfg to SequentialExecutor
+      lineinfile:
+        path: "{{ airflow_home }}/airflow.cfg"
+        regexp: '^executor ='
+        line: 'executor = SequentialExecutor'
+        backup: yes
+      become_user: "{{ airflow_user }}"
+
+    - name: Create Airflow admin user
+      become_user: "{{ airflow_user }}"
+      environment:
+        AIRFLOW_HOME: "{{ airflow_home }}"
+        PATH: "{{ python_bin }}:{{ ansible_env.PATH }}"
+      command: >
+        {{ python_bin }}/airflow users create
+        --username {{ airflow_admin_user }}
+        --firstname Admin
+        --lastname User
+        --role Admin
+        --email {{ airflow_admin_email }}
+        --password {{ airflow_admin_pass }}
+
+    - name: Ensure DAGs directory exists
+      file:
+        path: "{{ airflow_home }}/dags"
+        state: directory
+        owner: "{{ airflow_user }}"
+        group: "{{ airflow_user }}"
+        mode: '0755'
+
+    - name: Copy DAG file to DAGs folder
+      copy:
+        src: /home/almalinux/EDA/stock_prediction_dag.py
+        dest: "{{ airflow_home }}/dags/stock_prediction_dag.py"
+        owner: "{{ airflow_user }}"
+        group: "{{ airflow_user }}"
+        mode: '0644'
+
+    - name: Fix ownership and permissions of airflow directory
+      file:
+        path: "{{ airflow_home }}"
+        owner: "{{ airflow_user }}"
+        group: "{{ airflow_user }}"
+        recurse: yes
+        mode: '0755'
+
+#    - name: Start Airflow scheduler in foreground (compatible with SequentialExecutor)
+#      become_user: "{{ airflow_user }}"
+#      args:
+#        chdir: "{{ airflow_home }}"
+#      environment:
+#        AIRFLOW_HOME: "{{ airflow_home }}"
+#        PATH: "{{ python_bin }}:{{ ansible_env.PATH }}"
+#      shell: |
+#        if ! pgrep -f "airflow scheduler"; then
+#          nohup {{ python_bin }}/airflow scheduler > {{ airflow_home }}/scheduler.log 2>&1 &
+#        else
+#          echo "Airflow scheduler already running."
+#        fi
+
+
+    - name: Start Airflow scheduler (exact manual command style)
+      become: yes
+      shell: |
+        sudo -u airflow bash -c 'cd /opt/airflow && AIRFLOW_HOME=/opt/airflow /opt/airflow/venv/bin/airflow scheduler > /opt/airflow/scheduler.log 2>&1 &'
+      args:
+        executable: /bin/bash
+
+    - name: Start Airflow webserver (exact manual command style)
+      become: yes
+      shell: |
+        sudo -u airflow bash -c 'cd /opt/airflow && AIRFLOW_HOME=/opt/airflow /opt/airflow/venv/bin/airflow webserver -p 8081 > /opt/airflow/webserver.log 2>&1 &'
+      args:
+        executable: /bin/bash
+
+
+
+
+
