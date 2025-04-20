@@ -1,4 +1,3 @@
----
 - name: Install and Configure Spark and Java
   hosts: all
   become: true
@@ -10,7 +9,6 @@
     spark_install_dir: "/opt/spark"
 
   tasks:
-
     - name: Install required packages
       yum:
         name:
@@ -70,10 +68,10 @@
       ignore_errors: true
 
     - name: Start Spark Worker
-      command: "{{ spark_install_dir }}/sbin/start-worker.sh spark://{{ groups['hosts'][0] }}:7077"
+      command: "bash -c 'source /etc/profile.d/spark.sh && {{ spark_install_dir }}/sbin/start-worker.sh spark://{{ groups['hosts'][0] }}:7077'"
       when: inventory_hostname in groups['workers']
       ignore_errors: true
-    
+
     - name: Persist PYSPARK_PYTHON path for all users
       copy:
         dest: /etc/profile.d/pyspark_python.sh
@@ -81,3 +79,39 @@
           export PYSPARK_PYTHON=/data/local/venv/bin/python
         mode: '0755'
 
+    # ---------------------------------------------------------------------------
+    # Option 2: Open a Broad Range of Ephemeral Ports on the Master Node
+    # These tasks run only on nodes in the 'hosts' group (the master).
+    # ---------------------------------------------------------------------------
+    - name: Install firewalld on Master Node
+      ansible.builtin.yum:
+        name: firewalld
+        state: present
+      when: ansible_facts['os_family'] == "RedHat" and inventory_hostname in groups['hosts']
+
+    - name: Start and enable firewalld on Master Node
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: yes
+      when: ansible_facts['os_family'] == "RedHat" and inventory_hostname in groups['hosts']
+
+    - name: Allow Spark master port 7077 via firewalld on Master Node
+      ansible.posix.firewalld:
+        port: 7077/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when: ansible_facts['os_family'] == "RedHat" and inventory_hostname in groups['hosts']
+
+    - name: Allow Spark ephemeral port range via firewalld on Master Node
+      ansible.posix.firewalld:
+        port: "32768-61000/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when: ansible_facts['os_family'] == "RedHat" and inventory_hostname in groups['hosts']
+
+    - name: Reload firewalld configuration on Master Node
+      ansible.builtin.command: firewall-cmd --reload
+      when: ansible_facts['os_family'] == "RedHat" and inventory_hostname in groups['hosts']
