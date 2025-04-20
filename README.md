@@ -1,8 +1,8 @@
 # Srock market prediction with Distributed Computing
 
-This project is designed to efficiently analyze and summarize protein domain data for human and Ecoli datasets. It automates domain prediction, result summarization, and mean score calculation by combining tailored Python scripts with distributed computing tools like Apache Spark.
+This project is designed to efficiently process and analyze stock market datasets using distributed computing tools. It leverages Apache Spark for parallelized model execution across thousands of CSV files to evaluate prediction accuracy. The system is capable of training a model on one dataset and testing it on thousands of others, making it suitable for large-scale financial data experiments and stress testing.
 
-The implementation emphasizes scalability, performance, and simplicity, ensuring the system can handle large datasets while minimizing overhead. This streamlined workflow offers a valuable solution for researchers and organizations conducting bioinformatics studies on protein domains.
+The implementation focuses on scalability, automation, and performance. By combining Python scripts, Terraform for infrastructure provisioning, Ansible for configuration, and Apache Airflow for orchestration, the project ensures a streamlined, repeatable workflow for financial time-series prediction tasks.
 
 ---
 
@@ -89,11 +89,11 @@ If these conditions are not met, rerun the `setup_cluster.yaml` and `setup_data.
 
 
 ### Step 3: Working with Airflow
-1. Open your browser and navigate to the Airflow web UI at http://<host_ip>:8080.
+1. Open your browser and navigate to the Airflow web UI at (https://airflow-machine.comp0235.condenser.arc.ucl.ac.uk/).
 
 2. Log in with the default credentials:
-Username: admin
-Password: admin
+   1. Username: admin
+   2. Password: admin123
 
 3. In the DAGs list, locate stock_prediction_dag.py and click the Trigger button to start the pipeline.
 
@@ -109,6 +109,12 @@ Note: Ensure the CSV files exist in the specified location.
 
 5. Re-trigger stock_prediction_dag.py to use the new directory.
 
+
+
+### Step 3: (Optional) Manual Triggering 
+In case the airflow setup doesnt work, on host:
+1. Go to /data/local/pipeline_scripts.
+2. Use the command spark-submit test.py --csv_dir (give location of csv directory).
 
 
 
