@@ -1,8 +1,8 @@
-# Protein Domain Analysis with Python and Distributed Computing
+# Srock market prediction with Distributed Computing
 
-This project is designed to efficiently analyze and summarize protein domain data for human and Ecoli datasets. It automates domain prediction, result summarization, and mean score calculation by combining tailored Python scripts with distributed computing tools like Apache Spark.
+This project is designed to efficiently process and analyze stock market datasets using distributed computing tools. It leverages Apache Spark for parallelized model execution across thousands of CSV files to evaluate prediction accuracy. The system is capable of training a model on one dataset and testing it on thousands of others, making it suitable for large-scale financial data experiments and stress testing.
 
-The implementation emphasizes scalability, performance, and simplicity, ensuring the system can handle large datasets while minimizing overhead. This streamlined workflow offers a valuable solution for researchers and organizations conducting bioinformatics studies on protein domains.
+The implementation focuses on scalability, automation, and performance. By combining Python scripts, Terraform for infrastructure provisioning, Ansible for configuration, and Apache Airflow for orchestration, the project ensures a streamlined, repeatable workflow for financial time-series prediction tasks.
 
 ---
 
@@ -62,10 +62,8 @@ After creating the VMs, run the Ansible playbook `full.yaml` to configure the en
    - Installing required scripts on the host VM.
    - Mounting shared storage on the host and workers using NFS.
 6. **`setup_data.yaml`**: Prepares the required datasets on the storage node and organizes them into the appropriate format.
-7. **`execute_scripts.yaml`**: Executes the core Python scripts:
-   - `pipeline_script.py`
-   - `results_parser.py`
-   - Mean calculation scripts for both human and Ecoli datasets.
+7. **`shared_venv.yaml`**: Prepares a shared Python environment to be used by workers and hosts.
+8. **`setup_airflow.yaml`**: Prepares airflow setup on host.
 
 To run `full.yaml`, execute:
 ```bash
@@ -81,68 +79,45 @@ ansible-playbook -i generate_inventory.py full.yaml
 If the script fails at any point, try running the failed playbooks individually. If the script runs successfully up to the final step of executing the Python scripts, ensure the following:
 
 1. **On the Host VM**:
-   - Scripts should be present at `/data/local/pipeline_scripts`.
-   - This directory must contain all required scripts.
+   - Script (test.py) should be present at `/data/local/pipeline_scripts`.
+   - This directory must contain the pre-trained model as well.
 
 2. **On the Storage VM**:
-   - `db`, `human`, and `ecoli` directories should be present at `/data/local/extracted`.
-   - `.pdb` files should exist inside the `human` and `ecoli` directories.
+   - csv files should be present in /data/local/venv/extracted/stock-market-dataset/stocks.
 
-If these conditions are not met, rerun the `setup_cluster.yaml` playbook and verify again.
-> **Note**: change path in setup_cluster where the scripts are present in task- "Copy scripts to all nodes" and make sure all scripts are present at the location specified.
----
+If these conditions are not met, rerun the `setup_cluster.yaml` and `setup_data.yaml`  playbook and verify again.
 
-### Step 3: Executing Scripts
 
-When `execute_scripts.yaml` runs, the following Python scripts are executed:
+### Step 3: Working with Airflow
+1. Open your browser and navigate to the Airflow web UI at (https://airflow-machine.comp0235.condenser.arc.ucl.ac.uk/).
 
-1. **`pipeline_script.py`**:
-   - **Arguments**: Input directory, Output directory
-   - Example:
-     ```bash
-     spark-submit pipeline_script.py /data/local/extracted/ecoli /data/local/extracted/ecoli/output
-     ```
+2. Log in with the default credentials:
+   1. Username: admin
+   2. Password: admin123
 
-2. **`summarise_results.py`**:
-   - **Arguments**: Input directory, Output directory, Name_of_the_file__cath_summary.csv
-   - Example:
-     ```bash
-     python3 summarise_results.py /data/local/extracted/ecoli/output /data/local/extracted/ecoli/summary_file ecoli
-     ```
+3. In the DAGs list, locate stock_prediction_dag.py and click the Trigger button to start the pipeline.
 
-3. **`calculate_mean.py`**:
-   - **Arguments**: Input directory, Output directory
-   - Example:
-     ```bash
-     python3 calculate_mean.py /data/local/extracted/ecoli/output /data/local/extracted/ecoli/plDDT_mean
-     ```
+Wait for the DAG to finish executing. You can monitor task status in the UI.
 
-The system is configured to run these commands in the following order:
+4. Custom CSV Directory (Optional):
 
-1. `spark-submit pipeline_script.py /data/local/extracted/ecoli /data/local/extracted/ecoli/output`
-2. `python3 summarise_results.py /data/local/extracted/ecoli/output /data/local/extracted/ecoli/summary_file ecoli`
-3. `python3 calculate_mean.py /data/local/extracted/ecoli/output /data/local/extracted/ecoli/plDDT_mean`
-4. `spark-submit pipeline_script.py /data/local/extracted/human /data/local/extracted/human/output`
-5. `python3 summarise_results.py /data/local/extracted/human/output /data/local/extracted/human/summary_file human`
-6. `python3 calculate_mean.py /data/local/extracted/human/output /data/local/extracted/human/plDDT_mean`
+   1. In the Airflow UI, go to Admin → Variables.
 
----
+   2. Add or edit a variable named csv_dir and set its value to the path of your custom CSV directory.
 
-### Output Files
+Note: Ensure the CSV files exist in the specified location.
 
-**For Ecoli:**
-- Output files: `/data/local/extracted/ecoli/output`
-- Summary CSV: `/data/local/extracted/ecoli/summary_file`
-- Mean CSV: `/data/local/extracted/ecoli/plDDT_mean`
+5. Re-trigger stock_prediction_dag.py to use the new directory.
 
-**For Human:**
-- Output files: `/data/local/extracted/human/output`
-- Summary CSV: `/data/local/extracted/human/summary_file`
-- Mean CSV: `/data/local/extracted/human/plDDT_mean`
 
-> **Note**: If at any point any of the scripts do not work, navigate to `/data/local/pipeline_scripts` and run the script manually.
 
----
+### Step 3: (Optional) Manual Triggering 
+In case the airflow setup doesnt work, on host:
+1. Go to /data/local/pipeline_scripts.
+2. Use the command spark-submit test.py --csv_dir (give location of csv directory).
+
+
+
 
 ## To Conclude
 
