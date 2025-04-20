@@ -88,6 +88,31 @@ If the script fails at any point, try running the failed playbooks individually.
 If these conditions are not met, rerun the `setup_cluster.yaml` and `setup_data.yaml`  playbook and verify again.
 
 
+### Step 3: Working with Airflow
+1. Open your browser and navigate to the Airflow web UI at http://<host_ip>:8080.
+
+2. Log in with the default credentials:
+Username: admin
+Password: admin
+
+3. In the DAGs list, locate stock_prediction_dag.py and click the Trigger button to start the pipeline.
+
+Wait for the DAG to finish executing. You can monitor task status in the UI.
+
+4. Custom CSV Directory (Optional):
+
+   1. In the Airflow UI, go to Admin → Variables.
+
+   2. Add or edit a variable named csv_dir and set its value to the path of your custom CSV directory.
+
+Note: Ensure the CSV files exist in the specified location.
+
+5. Re-trigger stock_prediction_dag.py to use the new directory.
+
+
+
+
+
 ## To Conclude
 
 Commands to run:
