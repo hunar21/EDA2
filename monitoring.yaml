@@ -1,0 +1,340 @@
+---
+# site.yml — unified playbook for Prometheus, Node Exporter, Grafana, Spark metrics & Nginx
+#   (firewalld only, no UFW; assumes Terraform has created DNS & LB for grafana-${tf_username}:3000)
+
+- name: Configure all primary hosts (metrics stack & proxy)
+  hosts: hosts
+  become: yes
+
+  vars:
+    # must match your Terraform var.username
+    tf_username: machine
+
+    prometheus_user: prometheus
+    prometheus_group: prometheus
+    prometheus_install_dir: /usr/local/bin
+    prometheus_data_dir: /var/lib/prometheus
+    prometheus_config_dir: /etc/prometheus
+    prometheus_config_file: "{{ prometheus_config_dir }}/prometheus.yml"
+
+    node_exporter_service: node_exporter
+    spark_conf_dir: /etc/spark/conf
+
+    grafana_datasource_cfg: /etc/grafana/provisioning/datasources/prometheus.yml
+
+    prometheus_hostname: "prometheus-{{ tf_username }}.condenser.arc.ucl.ac.uk"
+    grafana_hostname:    "grafana-{{ tf_username }}.condenser.arc.ucl.ac.uk"
+
+  handlers:
+    - name: restart prometheus
+      systemd:
+        name: prometheus
+        state: restarted
+
+    - name: restart grafana
+      systemd:
+        name: grafana-server
+        state: restarted
+
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted
+
+  tasks:
+    # 1) Core packages & SELinux
+    - name: Install EPEL, Golang, Grafana, Nginx, Firewalld
+      dnf:
+        name:
+          - epel-release
+          - golang
+          - grafana
+          - nginx
+          - firewalld
+        state: present
+
+    - name: Import EPEL GPG key
+      rpm_key:
+        state: present
+        key: /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9
+
+    - name: Enable and start firewalld
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+
+    - name: Open firewall ports for services
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        - 80     # HTTP proxy
+        - 443    # HTTPS proxy
+        - 9090   # Prometheus
+        - 9100   # Node Exporter
+        - 3000   # Grafana
+        - 8080   # Spark UI
+        - 8081   # Airflow UI (if using)
+
+    - name: Allow Nginx to make outbound connections (SELinux)
+      command: setsebool -P httpd_can_network_connect on
+
+    # 2) Prometheus & Node Exporter
+    - name: Install Prometheus & Node Exporter libraries
+      dnf:
+        name:
+          - golang-github-prometheus
+          - golang-github-prometheus-node-exporter
+        state: present
+        disable_gpg_check: true
+
+    - name: Download Prometheus tarball
+      get_url:
+        url: https://github.com/prometheus/prometheus/releases/download/v2.55.1/prometheus-2.55.1.linux-amd64.tar.gz
+        dest: /tmp/prometheus.tar.gz
+        mode: '0644'
+
+    - name: Unpack Prometheus into {{ prometheus_install_dir }}
+      unarchive:
+        src: /tmp/prometheus.tar.gz
+        dest: "{{ prometheus_install_dir }}"
+        remote_src: yes
+        extra_opts: ['--strip-components=1']
+        creates: "{{ prometheus_install_dir }}/prometheus"
+
+    - name: Ensure Prometheus binaries are executable
+      file:
+        path: "{{ prometheus_install_dir }}/{{ item }}"
+        mode: '0755'
+      loop:
+        - prometheus
+        - promtool
+
+    - name: Create prometheus user & directories
+      block:
+        - user:
+            name: "{{ prometheus_user }}"
+            system: yes
+            shell: /sbin/nologin
+        - file:
+            path: "{{ prometheus_data_dir }}"
+            state: directory
+            owner: "{{ prometheus_user }}"
+            group: "{{ prometheus_group }}"
+            mode: '0755'
+        - file:
+            path: "{{ prometheus_config_dir }}"
+            state: directory
+            owner: "{{ prometheus_user }}"
+            group: "{{ prometheus_group }}"
+            mode: '0755'
+
+    - name: Deploy Prometheus configuration
+      copy:
+        dest: "{{ prometheus_config_file }}"
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_group }}"
+        mode: '0644'
+        content: |
+          global:
+            scrape_interval: 15s
+
+          scrape_configs:
+            - job_name: 'node_exporter'
+              static_configs:
+                - targets:
+          {% for host in groups['hosts'] + groups['workers'] %}
+                  - "{{ hostvars[host]['ansible_host'] | default(host) }}:9100"
+          {% endfor %}
+      notify: restart prometheus
+
+    - name: Install Prometheus systemd unit
+      copy:
+        dest: /etc/systemd/system/prometheus.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Prometheus Monitoring
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User={{ prometheus_user }}
+          Group={{ prometheus_group }}
+          Type=simple
+          ExecStart={{ prometheus_install_dir }}/prometheus \
+            --config.file={{ prometheus_config_file }} \
+            --storage.tsdb.path={{ prometheus_data_dir }}
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: restart prometheus
+
+    - name: Ensure Prometheus is enabled & running
+      systemd:
+        daemon_reload: yes
+        name: prometheus
+        enabled: true
+        state: started
+
+    - name: Install Node Exporter systemd unit
+      copy:
+        dest: /etc/systemd/system/{{ node_exporter_service }}.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User=root
+          Group=root
+          Type=simple
+          ExecStart=/usr/bin/node_exporter
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: restart prometheus  # will reload systemd and start node_exporter too
+
+    # 3) Grafana
+    - name: Deploy Grafana Prometheus data source
+      copy:
+        dest: "{{ grafana_datasource_cfg }}"
+        mode: '0644'
+        content: |
+          apiVersion: 1
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              access: proxy
+              url: http://localhost:9090
+              isDefault: true
+      notify: restart grafana
+
+    - name: Ensure Grafana service is enabled & running
+      systemd:
+        name: grafana-server
+        enabled: true
+        state: started
+
+    # 4) Spark metrics (optional)
+    - name: Ensure Spark config dir
+      file:
+        path: "{{ spark_conf_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Configure Spark metrics.properties
+      lineinfile:
+        path: "{{ spark_conf_dir }}/metrics.properties"
+        create: yes
+        mode: '0644'
+        regexp: '^spark.metrics.conf\..*'
+        line: "{{ item }}"
+      loop:
+        - "spark.metrics.conf.*.sink.prometheusServlet.class=org.apache.spark.metrics.sink.PrometheusServlet"
+        - "spark.metrics.conf.*.sink.prometheusServlet.path=/metrics"
+        - "spark.metrics.conf.master.sink.prometheusServlet.path=/metrics"
+        - "spark.metrics.conf.worker.sink.prometheusServlet.path=/metrics"
+
+    # 5) Nginx reverse proxies
+    - name: Deploy Nginx vhost for Prometheus
+      copy:
+        dest: /etc/nginx/conf.d/prometheus.conf
+        mode: '0644'
+        content: |
+          server {
+            listen       80;
+            server_name  {{ prometheus_hostname }};
+
+            location / {
+              proxy_pass         http://127.0.0.1:9090;
+              proxy_set_header   Host $host;
+              proxy_set_header   X-Real-IP $remote_addr;
+              proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+          }
+      notify: restart nginx
+
+    - name: Deploy Nginx vhost for Grafana
+      copy:
+        dest: /etc/nginx/conf.d/grafana.conf
+        mode: '0644'
+        content: |
+          server {
+            listen       80;
+            server_name  {{ grafana_hostname }};
+
+            location / {
+              proxy_pass         http://127.0.0.1:3000;
+              proxy_set_header   Host $host;
+              proxy_set_header   X-Real-IP $remote_addr;
+              proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+          }
+      notify: restart nginx
+
+    - name: Ensure Nginx is enabled & running
+      systemd:
+        name: nginx
+        enabled: true
+        state: started
+
+
+- name: Configure worker nodes (Node Exporter & Firewalld)
+  hosts: workers
+  become: yes
+  vars:
+    node_exporter_service: node_exporter
+
+  tasks:
+    - name: Install EPEL & Node Exporter
+      dnf:
+        name:
+          - epel-release
+          - golang-github-prometheus-node-exporter
+        state: present
+        disable_gpg_check: true
+
+    - name: Import EPEL GPG key
+      rpm_key:
+        state: present
+        key: /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9
+
+    - name: Ensure Node Exporter systemd unit
+      copy:
+        dest: /etc/systemd/system/{{ node_exporter_service }}.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User=root
+          Group=root
+          Type=simple
+          ExecStart=/usr/bin/node_exporter
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: restart prometheus
+
+    - name: Ensure Node Exporter is enabled & running
+      systemd:
+        daemon_reload: yes
+        name: "{{ node_exporter_service }}"
+        enabled: true
+        state: started
+
+    - name: Open Node Exporter port (9100/tcp) via firewalld
+      ansible.posix.firewalld:
+        port: 9100/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes

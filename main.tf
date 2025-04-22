@@ -95,6 +95,13 @@ resource "harvester_virtualmachine" "host" {
     condenser_ingress_airflow_hostname = "airflow-${var.username}"
     condenser_ingress_airflow_port     = 8081
     condenser_ingress_flask_hostname   = "airflow-api-${var.username}"
+
+    condenser_ingress_prometheus_hostname = "prometheus-${var.username}"
+    condenser_ingress_prometheus_port     = 9090
+    condenser_ingress_nodeexporter_hostname = "nodeexporter-${var.username}"
+    condenser_ingress_nodeexporter_port   = 9100
+    condenser_ingress_grafana_hostname    = "grafana-${var.username}"
+    condenser_ingress_grafana_port        = 3000
   }
 
   # Cloud-init configuration
@@ -167,9 +174,11 @@ resource "harvester_virtualmachine" "storage_vm" {
   memory = var.storage_memory
 
   efi          = true
-  secure_boot  = true
+  secure_boot  = false
   run_strategy = "RerunOnFailure"
   hostname     = "storage-${format("%02d", count.index + 1)}-${random_id.secret.hex}"
+  reserved_memory      = "100Mi"
+  machine_type         = "q35"
 
   # Network interface
   network_interface {

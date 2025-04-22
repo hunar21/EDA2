@@ -10,5 +10,4 @@
 - import_playbook: setup_data.yaml
 - import_playbook: shared_venv.yaml
 - import_playbook: setup_airflow2.yaml
-
-#- import_playbook: execute_scripts.yaml
+- import_playbook: monitoring.yaml

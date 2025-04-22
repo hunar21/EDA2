@@ -92,7 +92,7 @@ variable storage_hdd1 {
 
 variable storage_hdd2 {
   type    = string
-  default = "200Gi"
+  default = "32Gi"
 }
 
 variable storage_count {
