@@ -1,0 +1,80 @@
+---
+- name: Configure Grafana – clean up provisioning, add Prometheus DS & import dashboard 1860
+  hosts: hosts
+  become: yes
+
+  vars:
+    grafana_url:          "https://grafana-machine.comp0235.condenser.arc.ucl.ac.uk"
+    grafana_api_user:     "admin"
+    grafana_api_password: "admin"
+    prometheus_url:       "https://prometheus-machine.comp0235.condenser.arc.ucl.ac.uk"
+
+  tasks:
+    - name: Remove broken provisioning datasources file
+      file:
+        path: /etc/grafana/provisioning/datasources/datasources.yml
+        state: absent
+
+    - name: Ensure grafana-server is started and enabled
+      systemd:
+        name: grafana-server
+        state: started
+        enabled: true
+
+    - name: Wait for Grafana API health endpoint
+      uri:
+        url: "{{ grafana_url }}/api/health"
+        method: GET
+        status_code: 200
+      register: grafana_health
+      until: grafana_health.status == 200
+      retries: 12
+      delay: 5
+
+    - name: Create Prometheus data source via API
+      uri:
+        url: "{{ grafana_url }}/api/datasources"
+        method: POST
+        user: "{{ grafana_api_user }}"
+        password: "{{ grafana_api_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name:      "Prometheus"
+          type:      "prometheus"
+          access:    "proxy"
+          url:       "{{ prometheus_url }}"
+          isDefault: true
+        status_code: [200,409]
+      register: ds_result
+
+    - debug:
+        msg: "Prometheus DS create/update returned HTTP {{ ds_result.status }}"
+
+    - name: Download Grafana dashboard 1860 JSON
+      uri:
+        url: https://grafana.com/api/dashboards/1860/revisions/latest/download
+        return_content: yes
+      register: dash_1860
+
+    - name: Import dashboard 1860 into Grafana
+      uri:
+        url: "{{ grafana_url }}/api/dashboards/db"
+        method: POST
+        user: "{{ grafana_api_user }}"
+        password: "{{ grafana_api_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          dashboard: "{{ dash_1860.content | from_json }}"
+          overwrite: true
+          folderId: 0
+        status_code: [200,412]
+      register: import_result
+
+    - debug:
+        msg: "Dashboard 1860 import returned HTTP {{ import_result.status }}"

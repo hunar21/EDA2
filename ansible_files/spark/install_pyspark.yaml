@@ -79,10 +79,6 @@
           export PYSPARK_PYTHON=/data/local/venv/bin/python
         mode: '0755'
 
-    # ---------------------------------------------------------------------------
-    # Option 2: Open a Broad Range of Ephemeral Ports on the Master Node
-    # These tasks run only on nodes in the 'hosts' group (the master).
-    # ---------------------------------------------------------------------------
     - name: Install firewalld on Master Node
       ansible.builtin.yum:
         name: firewalld

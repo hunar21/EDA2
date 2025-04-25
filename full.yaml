@@ -1,13 +1,16 @@
-- import_playbook: add_keys.yaml
-#- import_playbook: update.yaml
-- import_playbook: local.yaml
-#- import_playbook: reboot.yaml
-#- import_playbook: tools.yaml
-- import_playbook: tools2.yaml
-- import_playbook: install_pyspark.yaml
-- import_playbook: second-disk.yaml
-- import_playbook: setup_cluster.yaml
-- import_playbook: setup_data.yaml
-- import_playbook: shared_venv.yaml
-- import_playbook: setup_airflow2.yaml
-- import_playbook: monitoring.yaml
+- import_playbook: ansible_files/initial_conf/add_keys.yaml
+- import_playbook: ansible_files/initial_conf/local.yaml
+- import_playbook: ansible_files/initial_conf/tools2.yaml
+- import_playbook: ansible_files/initial_conf/second-disk.yaml
+
+- import_playbook: ansible_files/spark/install_pyspark.yaml
+
+- import_playbook: ansible_files/cluster_setup/setup_cluster.yaml
+- import_playbook: ansible_files/cluster_setup/setup_data.yaml
+- import_playbook: ansible_files/cluster_setup/shared_venv.yaml
+
+- import_playbook: ansible_files/airflow_setup/setup_airflow.yaml
+
+- import_playbook: ansible_files/logging/monitoring.yaml
+- import_playbook: ansible_files/logging/provision_dashboard.yaml
+

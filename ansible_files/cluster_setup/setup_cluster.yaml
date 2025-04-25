@@ -7,9 +7,9 @@
     shared_data_dir: /data/local
     pipeline_scripts_dir: /data/local/pipeline_scripts
     scripts:
-       - test.py
-       - stock_lstm_model.h5
-       - scaler.pkl
+       - scripts/test.py
+       - scripts/stock_lstm_model.h5
+       - scripts/scaler.pkl
 
 
   tasks:

@@ -118,7 +118,7 @@ def main():
     )
     parser.add_argument('--csv_dir', type=str, required=True, help='Directory containing CSV files')
     parser.add_argument('--sequence_length', type=int, default=60, help='Number of days per sequence')
-    parser.add_argument('--iterations', type=int, default=10, help='Number of iterations to run')
+    parser.add_argument('--iterations', type=int, default=80, help='Number of iterations to run')
     # Use absolute paths for model and scaler files on shared storage (e.g., NFS)
     parser.add_argument('--model_path', type=str, default='/data/local/pipeline_scripts/stock_lstm_model.h5', help='Absolute path to the Keras model file')
     parser.add_argument('--scaler_path', type=str, default='/data/local/pipeline_scripts/scaler.pkl', help='Absolute path to the scaler pickle file')
@@ -138,13 +138,16 @@ def main():
     print(f"Using host IP: {host_ip} as Spark master.")
 
     # Initialize Spark context with master set to the discovered IP
-    conf = SparkConf().setAppName("DistributedTestJob").setMaster(f"spark://{host_ip}:7077")
+    conf = SparkConf().setAppName("DistributedTestJob").setMaster(f"spark://{host_ip}:7077").set("spark.executor.memory", "24g").set("spark.executor.cores", "4") \
+    .set("spark.cores.max", "12") \
+    .set("spark.driver.memory", "8g") \
+    .set("spark.default.parallelism", "12")
     sc = SparkContext(conf=conf)
 
     start_time = time.time()
     
     # Increase the number of partitions to leverage parallelism (adjust numSlices as needed)
-    files_rdd = sc.parallelize(csv_files, numSlices=12)
+    files_rdd = sc.parallelize(csv_files, numSlices=36).persist()
 
     for iteration in range(args.iterations):
         print(f"\n--- Iteration {iteration+1} of {args.iterations} ---")

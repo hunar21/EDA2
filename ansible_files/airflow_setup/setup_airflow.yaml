@@ -24,21 +24,24 @@
           - openssl-devel
         state: present
 
-    - name: Install UFW (only for Ubuntu/Debian)
-      ansible.builtin.apt:
-        name: ufw
+
+    - name: Install firewalld
+      ansible.builtin.yum:
+        name: firewalld
         state: present
-      when: ansible_facts['os_family'] == "Debian"
 
-    - name: Allow port 8081 for Airflow UI via UFW
-      ansible.builtin.command: ufw allow 8081/tcp
-      when: ansible_facts['os_family'] == "Debian"
-      ignore_errors: yes
+    - name: Start and enable firewalld
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: yes
 
-    - name: Enable UFW
-      ansible.builtin.command: ufw --force enable
-      when: ansible_facts['os_family'] == "Debian"
-      ignore_errors: yes
+    - name: Allow port 8081 for Airflow UI via firewalld
+      ansible.posix.firewalld:
+        port: 8081/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
 
     - name: Create airflow user if not exists
       user:
@@ -78,14 +81,13 @@
         "apache-airflow[sqlite]==2.10.5"
         --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.9.txt"
 
-
     - name: Initialize Airflow DB
       become_user: "{{ airflow_user }}"
       environment:
         AIRFLOW_HOME: "{{ airflow_home }}"
         PATH: "{{ python_bin }}:{{ ansible_env.PATH }}"
       command: "{{ python_bin }}/airflow db init"
-    
+
     - name: Set executor in airflow.cfg to SequentialExecutor
       lineinfile:
         path: "{{ airflow_home }}/airflow.cfg"
@@ -118,36 +120,79 @@
 
     - name: Copy DAG file to DAGs folder
       copy:
-        src: /home/almalinux/EDA/stock_prediction_dag.py
+        src: dag/stock_prediction_dag.py
         dest: "{{ airflow_home }}/dags/stock_prediction_dag.py"
         owner: "{{ airflow_user }}"
         group: "{{ airflow_user }}"
         mode: '0644'
 
-    - name: Start Airflow scheduler (detached) if not already running
+    - name: Fix ownership and permissions of airflow directory
+      file:
+        path: "{{ airflow_home }}"
+        owner: "{{ airflow_user }}"
+        group: "{{ airflow_user }}"
+        recurse: yes
+        mode: '0755'
       become_user: "{{ airflow_user }}"
-      environment:
-        AIRFLOW_HOME: "{{ airflow_home }}"
-        PATH: "{{ python_bin }}:{{ ansible_env.PATH }}"
+      ignore_errors: yes
+      
+
+
+    - name: Start Airflow scheduler as background process
+      become: yes
+      become_user: airflow
       shell: |
-        if ! pgrep -f "airflow scheduler"; then
-          {{ python_bin }}/airflow scheduler -D
-        else
-          echo "Airflow scheduler already running."
-        fi
+        cd /opt/airflow
+        source venv/bin/activate
+        export AIRFLOW_HOME=/opt/airflow
+        nohup airflow scheduler > /opt/airflow/scheduler.log 2>&1 &
+      args:
+        executable: /bin/bash
 
-
-
-
-    - name: Start Airflow webserver (detached) if not already running
+    - name: Set web_server_host to 0.0.0.0 in airflow.cfg
+      lineinfile:
+        path: "{{ airflow_home }}/airflow.cfg"
+        regexp: '^web_server_host'
+        line: 'web_server_host = 0.0.0.0'
+        backup: yes
       become_user: "{{ airflow_user }}"
-      environment:
-        AIRFLOW_HOME: "{{ airflow_home }}"
-        PATH: "{{ python_bin }}:{{ ansible_env.PATH }}"
-      shell: |
-        if ! pgrep -f "airflow webserver"; then
-          {{ python_bin }}/airflow webserver -p 8081 -D
-        else
-          echo "Airflow webserver already running."
-        fi
 
+    - name: Start Airflow webserver as background process
+      become: yes
+      become_user: "{{ airflow_user }}"
+      shell: |
+        cd /opt/airflow
+        source venv/bin/activate
+        export AIRFLOW_HOME=/opt/airflow
+        nohup airflow webserver -p 8081 > /opt/airflow/webserver.log 2>&1 &
+      args:
+        executable: /bin/bash
+      environment:
+        AIRFLOW__WEBSERVER__WEB_SERVER_HOST: "0.0.0.0"
+
+    - name: Wait for Airflow webserver to be available
+      wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: 8081
+        delay: 5
+        timeout: 60
+
+    
+
+    - name: Increase job_heartbeat_sec in airflow.cfg
+      lineinfile:
+        path: "{{ airflow_home }}/airflow.cfg"
+        regexp: '^job_heartbeat_sec'
+        line: 'job_heartbeat_sec = 120'
+        backup: yes
+      become_user: "{{ airflow_user }}"
+
+    - name: Increase scheduler_heartbeat_sec in airflow.cfg
+      lineinfile:
+        path: "{{ airflow_home }}/airflow.cfg"
+        regexp: '^scheduler_heartbeat_sec'
+        line: 'scheduler_heartbeat_sec = 120'
+        backup: yes
+      become_user: "{{ airflow_user }}"
+
+   

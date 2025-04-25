@@ -71,7 +71,7 @@ variable worker_memory {
 
 variable worker_hdd1 {
   type    = string
-  default = "25Gi"
+  default = "50Gi"
 }
 
 # Storage Node Configurations
@@ -82,17 +82,17 @@ variable storage_cpu {
 
 variable storage_memory {
   type    = string
-  default = "8Gi"
+  default = "32Gi"
 }
 
 variable storage_hdd1 {
   type    = string
-  default = "10Gi"
+  default = "50Gi"
 }
 
 variable storage_hdd2 {
   type    = string
-  default = "32Gi"
+  default = "50Gi"
 }
 
 variable storage_count {
