@@ -1,13 +1,10 @@
 ---
-# site.yml — unified playbook for Prometheus, Node Exporter, Grafana, Spark metrics & Nginx
-#   (firewalld only, no UFW; assumes Terraform has created DNS & LB for grafana-${tf_username}:3000)
 
 - name: Configure all primary hosts (metrics stack & proxy)
   hosts: hosts
   become: yes
 
   vars:
-    # must match your Terraform var.username
     tf_username: machine
 
     prometheus_user: prometheus
@@ -42,7 +39,6 @@
         state: restarted
 
   tasks:
-    # 1) Core packages & SELinux
     - name: Install EPEL, Golang, Grafana, Nginx, Firewalld
       dnf:
         name:
@@ -198,7 +194,7 @@
 
           [Install]
           WantedBy=multi-user.target
-      notify: restart prometheus  # will reload systemd and start node_exporter too
+      notify: restart prometheus  
 
     # 3) Grafana
     - name: Deploy Grafana Prometheus data source
@@ -221,7 +217,6 @@
         enabled: true
         state: started
 
-    # 4) Spark metrics (optional)
     - name: Ensure Spark config dir
       file:
         path: "{{ spark_conf_dir }}"
@@ -241,7 +236,6 @@
         - "spark.metrics.conf.master.sink.prometheusServlet.path=/metrics"
         - "spark.metrics.conf.worker.sink.prometheusServlet.path=/metrics"
 
-    # 5) Nginx reverse proxies
     - name: Deploy Nginx vhost for Prometheus
       copy:
         dest: /etc/nginx/conf.d/prometheus.conf
@@ -338,3 +332,4 @@
         permanent: yes
         state: enabled
         immediate: yes
+      ignore_errors: yes

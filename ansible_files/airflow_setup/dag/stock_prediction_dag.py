@@ -1,4 +1,3 @@
-# stock_prediction_dag.py
 
 from airflow import DAG
 from airflow.models import Variable
