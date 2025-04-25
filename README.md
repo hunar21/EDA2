@@ -105,7 +105,7 @@ Wait for the DAG to finish executing. You can monitor task status in the UI.
 
    2. Add or edit a variable named csv_dir and set its value to the path of your custom CSV directory.
 
-Note: Ensure the CSV files exist in the specified location.
+Note: Ensure the CSV files exist in the specified shared location at the storage node before editing the variable in Airflow UI.
 
 5. Re-trigger stock_prediction_dag.py to use the new directory.
 
@@ -125,3 +125,5 @@ Commands to run:
 1. `terraform init`
 2. `terraform apply`
 3. `ansible-playbook -i generate_inventory.py full.yaml`
+4. `Trigger stock_prediction dag at airflow UI`
+
