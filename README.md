@@ -110,6 +110,8 @@ Once the spark job completes, the accuracy text files will be present at the csv
    2. Add or edit a variable named csv_dir and set its value to the path of your custom CSV directory.
 
 Note: Ensure the CSV files exist in the specified shared location at the storage node before editing the variable in Airflow UI.
+By default, the path is set to /data/local/venv/extracted/stock-market-dataset/stocks. In order to test the dynamic variable, set the csv_dir variable in the Airflow UI to
+/data/local/venv/extracted/stock-market-dataset/etfs.
 
 5. Re-trigger stock_prediction_dag.py to use the new directory.
 
