@@ -52,7 +52,7 @@ These VMs form the foundation for the project's workflow.
 
 ### Step 2: Configuring the Environment with Ansible
 
-After creating the VMs, run the Ansible playbook `full.yaml` to configure the environment. This playbook combines several smaller playbooks, each handling a specific task:
+After creating the VMs, run the Ansible playbook `full.yaml` in your CNC and not Host to configure the environment. This playbook combines several smaller playbooks, each handling a specific task:
 
 1. **`add_keys.yaml`**: Adds the public SSH key to the authorized keys of the hosts.
 2. **`tools2.yaml`**: Installs necessary tools and libraries across all VMs.
@@ -79,7 +79,7 @@ ansible-playbook -i generate_inventory.py full.yaml
 
 ### Troubleshooting
 
-If the script fails at any point, try running the failed playbooks individually. If the script runs successfully up to the final step of executing the Python scripts, ensure the following:
+If the script fails at any point, try running the failed playbooks individually. If run manual running of individual script fails, try to debug or ignore the error and run the next script. If the script runs successfully up to the final step of executing the Python scripts, ensure the following:
 
 1. **On the Host VM**:
    - Script (test.py) should be present at `/data/local/pipeline_scripts`.
